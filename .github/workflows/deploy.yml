@@ -1,0 +1,74 @@
+# =============================================================
+#  PDF Solution — GitHub Actions CI/CD Pipeline
+#
+#  Triggers: every push to 'main' branch
+#
+#  What it does:
+#    1. Runs TypeScript build check (no type errors)
+#    2. SSHes into your VPS and runs deploy.sh
+#
+#  Setup (one-time):
+#    Go to GitHub → Settings → Secrets → Actions, add:
+#      SERVER_HOST       → your VPS IP or domain
+#      SERVER_USER       → ssh username (e.g. ubuntu)
+#      SERVER_SSH_KEY    → your private SSH key (id_rsa contents)
+#      SERVER_APP_PATH   → /var/www/pdfsolution
+# =============================================================
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ── Job 1: Build & type-check ─────────────────────────────
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type-check + Vite build
+        run: npm run build
+
+      - name: Confirm dist/ was created
+        run: ls -lah dist/
+
+  # ── Job 2: Deploy to VPS ────────────────────────────────────
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    needs: build          # only runs if build job passes
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: SSH into server and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:        ${{ secrets.SERVER_HOST }}
+          username:    ${{ secrets.SERVER_USER }}
+          key:         ${{ secrets.SERVER_SSH_KEY }}
+          port:        22
+          script_stop: true       # stop on first error
+          script: |
+            cd ${{ secrets.SERVER_APP_PATH }}
+            bash scripts/deploy.sh
+
+      - name: Verify health after deploy
+        run: |
+          sleep 5
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://${{ secrets.SERVER_HOST }}/api/health)
+          echo "Health check status: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1

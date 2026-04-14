@@ -1,0 +1,1356 @@
+import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { toolDefinitions, trustPoints, type ToolId } from "./data";
+import { buildPdfPreview, type PdfPreview } from "./pdfPreview";
+import {
+  bundleResultsAsZip,
+  compressPdfFile,
+  convertPdfToWord,
+  editPdfFile,
+  extractTextFromPdf,
+  getPdfPageCount,
+  imagesToPdf,
+  mergePdfFiles,
+  splitPdfFile,
+  type MergePlanItem,
+  type ResultFile,
+} from "./pdfTools";
+
+type UploadedFile = {
+  id: string;
+  file: File;
+  pageCount?: number;
+  error?: string;
+};
+
+type DownloadResult = ResultFile & {
+  id: string;
+  url: string;
+};
+
+type MergeComposerPage = {
+  id: string;
+  fileId: string;
+  fileName: string;
+  file: File;
+  pageIndex: number;
+  pageNumber: number;
+  image: string;
+};
+
+type ContactForm = {
+  name: string;
+  email: string;
+  message: string;
+};
+
+type AuthMode = "login" | "signup";
+
+type AuthForm = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+type SessionUser = {
+  name: string;
+  email: string;
+};
+
+const defaultTool: ToolId = "merge";
+const contactEmail = "vishaltiwari101999@gmail.com";
+const contactPhone = "8291569470";
+const contactAddress = "A-305 Green view Prernanagar Babhai Boriwali West 40092";
+const githubLink = "https://github.com/vishal8291/vishal8291";
+const linkedinLink = "https://www.linkedin.com/in/vishal-tiwari-158a5216b";
+const instagramLink = "https://www.instagram.com/vishal.buildss/?__pwa=1#";
+const featuredToolIds: ToolId[] = ["word", "merge", "edit", "compress"];
+const authTokenStorageKey = "pdfsolution-auth-token";
+
+function ToolGlyph({ toolId }: { toolId: ToolId }) {
+  const commonProps = {
+    viewBox: "0 0 48 48",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    className: "tool-glyph-svg",
+    "aria-hidden": true,
+  };
+
+  switch (toolId) {
+    case "merge":
+      return (
+        <svg {...commonProps}>
+          <rect x="7" y="11" width="14" height="22" rx="4" stroke="currentColor" strokeWidth="3" />
+          <rect x="27" y="11" width="14" height="22" rx="4" stroke="currentColor" strokeWidth="3" />
+          <path d="M19 24H29" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+        </svg>
+      );
+    case "split":
+      return (
+        <svg {...commonProps}>
+          <rect x="9" y="10" width="30" height="28" rx="5" stroke="currentColor" strokeWidth="3" />
+          <path d="M24 14V34" stroke="currentColor" strokeWidth="3" strokeDasharray="4 4" strokeLinecap="round" />
+        </svg>
+      );
+    case "extract":
+      return (
+        <svg {...commonProps}>
+          <rect x="10" y="8" width="28" height="32" rx="5" stroke="currentColor" strokeWidth="3" />
+          <path d="M17 18H31M17 24H31M17 30H25" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      );
+    case "edit":
+      return (
+        <svg {...commonProps}>
+          <path d="M13 33L16 27L30 13L35 18L21 32L13 33Z" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
+          <path d="M27 16L32 21" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      );
+    case "word":
+      return (
+        <svg {...commonProps}>
+          <rect x="8" y="10" width="12" height="28" rx="4" stroke="currentColor" strokeWidth="3" />
+          <path d="M26 14H38M26 22H38M26 30H34" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+          <path d="M11.5 18L14 30L16.5 22L19 30" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "imageToPdf":
+      return (
+        <svg {...commonProps}>
+          <rect x="8" y="11" width="32" height="26" rx="5" stroke="currentColor" strokeWidth="3" />
+          <circle cx="18" cy="20" r="3" fill="currentColor" />
+          <path d="M14 31L22 23L28 28L32 24L40 31" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "compress":
+      return (
+        <svg {...commonProps}>
+          <rect x="11" y="8" width="26" height="32" rx="5" stroke="currentColor" strokeWidth="3" />
+          <path d="M24 16V32M18 26L24 32L30 26" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+function App() {
+  const [activeTool, setActiveTool] = useState<ToolId>(defaultTool);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [results, setResults] = useState<DownloadResult[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("Ready for upload.");
+  const [splitSelection, setSplitSelection] = useState("1");
+  const [splitEveryPage, setSplitEveryPage] = useState(false);
+  const [rotation, setRotation] = useState("0");
+  const [removePages, setRemovePages] = useState("");
+  const [watermark, setWatermark] = useState("");
+  const [enableOcr, setEnableOcr] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [previewMap, setPreviewMap] = useState<Record<string, PdfPreview>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [visualSplitPages, setVisualSplitPages] = useState<number[]>([1]);
+  const [mergeComposerPages, setMergeComposerPages] = useState<MergeComposerPage[]>([]);
+  const [contactForm, setContactForm] = useState<ContactForm>({
+    name: "",
+    email: "",
+    message: "",
+  });
+  const [contactStatus, setContactStatus] = useState("");
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authForm, setAuthForm] = useState<AuthForm>({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [authError, setAuthError] = useState("");
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+
+  const tool = useMemo(
+    () => toolDefinitions.find((item) => item.id === activeTool) ?? toolDefinitions[0],
+    [activeTool],
+  );
+  const featuredTools = useMemo(
+    () => featuredToolIds.map((id) => toolDefinitions.find((item) => item.id === id)).filter(Boolean),
+    [],
+  );
+
+  const canBundleResults = results.length > 1;
+  const primaryPreviewFile = useMemo(
+    () => files.find((item) => isPdfFile(item.file) && !item.error) ?? null,
+    [files],
+  );
+  const primaryPreview = primaryPreviewFile ? previewMap[primaryPreviewFile.id] ?? null : null;
+
+  useEffect(() => {
+    return () => {
+      results.forEach((result) => URL.revokeObjectURL(result.url));
+    };
+  }, [results]);
+  useEffect(() => {
+    const token = window.localStorage.getItem(authTokenStorageKey);
+    if (!token) {
+      return;
+    }
+
+    void fetch("/api/auth/me", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Session expired.");
+        }
+        return response.json() as Promise<{ user: SessionUser }>;
+      })
+      .then((payload) => {
+        setSessionUser(payload.user);
+      })
+      .catch(() => {
+        window.localStorage.removeItem(authTokenStorageKey);
+      });
+  }, []);
+
+  useEffect(() => {
+    setFiles([]);
+    setError("");
+    setStatus(`Selected tool: ${tool.title}`);
+    setResults((current) => {
+      current.forEach((result) => URL.revokeObjectURL(result.url));
+      return [];
+    });
+    setPreviewMap({});
+    setMergeComposerPages([]);
+    setVisualSplitPages([1]);
+    setSplitSelection("1");
+    setEnableOcr(false);
+  }, [tool.title]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPreviews() {
+      const pdfFiles = files.filter((item) => isPdfFile(item.file) && !item.error);
+      if (pdfFiles.length === 0) {
+        setPreviewMap({});
+        setMergeComposerPages([]);
+        return;
+      }
+
+      setPreviewLoading(true);
+      try {
+        const entries = await Promise.all(
+          pdfFiles.map(async (item) => {
+            const preview = await buildPdfPreview(item.file);
+            return [item.id, preview] as const;
+          }),
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        const nextPreviewMap = Object.fromEntries(entries);
+        setPreviewMap(nextPreviewMap);
+
+        if (activeTool === "split") {
+          const firstPreview = pdfFiles[0] ? nextPreviewMap[pdfFiles[0].id] : null;
+          if (firstPreview) {
+            const firstPage = firstPreview.pageCount > 0 ? [1] : [];
+            setVisualSplitPages(firstPage);
+            setSplitSelection(firstPage.join(","));
+          }
+        }
+
+        if (activeTool === "merge") {
+          const nextMergePages = pdfFiles.flatMap((item) => {
+            const preview = nextPreviewMap[item.id];
+            if (!preview) {
+              return [];
+            }
+
+            return preview.thumbnails.map((thumbnail, index) => ({
+              id: `${item.id}-${thumbnail.pageNumber}`,
+              fileId: item.id,
+              fileName: item.file.name,
+              file: item.file,
+              pageIndex: index,
+              pageNumber: thumbnail.pageNumber,
+              image: thumbnail.image,
+            }));
+          });
+
+          setMergeComposerPages(nextMergePages);
+        } else {
+          setMergeComposerPages([]);
+        }
+      } catch (previewError) {
+        if (!cancelled) {
+          const message = previewError instanceof Error ? previewError.message : "Unable to render preview.";
+          setError(message);
+          setPreviewMap({});
+          setMergeComposerPages([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setPreviewLoading(false);
+        }
+      }
+    }
+
+    void loadPreviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [files, activeTool]);
+
+  async function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
+    const nextFiles = Array.from(event.target.files ?? []);
+    await addFiles(nextFiles);
+    event.target.value = "";
+  }
+
+  async function addFiles(incoming: File[]) {
+    if (incoming.length === 0) {
+      return;
+    }
+
+    setError("");
+    setStatus(`Loading ${incoming.length} file(s)...`);
+
+    const mapped = await Promise.all(
+      incoming.map(async (file, index) => {
+        const id = `${file.name}-${file.size}-${index}-${Date.now()}`;
+        if (isPdfFile(file)) {
+          try {
+            const pageCount = await getPdfPageCount(file);
+            return { id, file, pageCount } satisfies UploadedFile;
+          } catch (loadError) {
+            const message = loadError instanceof Error ? loadError.message : "Unable to read PDF.";
+            return { id, file, error: message } satisfies UploadedFile;
+          }
+        }
+
+        return { id, file } satisfies UploadedFile;
+      }),
+    );
+
+    setFiles((current) => {
+      const next = tool.multi ? [...current, ...mapped] : mapped.slice(0, 1);
+      setStatus(`${next.length} file(s) ready.`);
+      return next;
+    });
+  }
+
+  async function runTool() {
+    setBusy(true);
+    setError("");
+    setStatus(
+      enableOcr && (activeTool === "extract" || activeTool === "word")
+        ? `Running ${tool.title} with OCR...`
+        : `Running ${tool.title}...`,
+    );
+
+    try {
+      const output = await executeTool();
+      const nextResults = output.map((item, index) => ({
+        ...item,
+        id: `${item.name}-${index}-${Date.now()}`,
+        url: URL.createObjectURL(item.blob),
+      }));
+
+      setResults((current) => {
+        current.forEach((result) => URL.revokeObjectURL(result.url));
+        return nextResults;
+      });
+      setStatus(`${tool.title} finished. ${nextResults.length} file(s) ready to download.`);
+    } catch (runError) {
+      const message = runError instanceof Error ? runError.message : "Something went wrong.";
+      setError(message);
+      setStatus("Action failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function downloadAllResults() {
+    setBusy(true);
+    setError("");
+
+    try {
+      const zipResult = await bundleResultsAsZip(
+        results.map(({ name, blob, summary, textPreview }) => ({ name, blob, summary, textPreview })),
+        `${tool.id}-results.zip`,
+      );
+      const url = URL.createObjectURL(zipResult.blob);
+      triggerDownload(url, zipResult.name);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setStatus("Bundled all result files into a ZIP download.");
+    } catch (bundleError) {
+      const message = bundleError instanceof Error ? bundleError.message : "Unable to create ZIP.";
+      setError(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function executeTool(): Promise<ResultFile[]> {
+    ensureValidSelection();
+
+    switch (activeTool) {
+      case "merge": {
+        const mergePlan: MergePlanItem[] = mergeComposerPages.map((page) => ({
+          file: page.file,
+          pageIndex: page.pageIndex,
+        }));
+        return [await mergePdfFiles(files.map((item) => item.file), mergePlan)];
+      }
+      case "split":
+        return splitPdfFile(files[0].file, splitSelection, splitEveryPage);
+      case "extract":
+        return [await extractTextFromPdf(files[0].file, { useOcr: enableOcr })];
+      case "edit":
+        return [
+          await editPdfFile(files[0].file, {
+            rotation: Number(rotation) || 0,
+            removePages,
+            watermark,
+          }),
+        ];
+      case "word":
+        return [await convertPdfToWord(files[0].file, { useOcr: enableOcr })];
+      case "imageToPdf":
+        return [await imagesToPdf(files.map((item) => item.file))];
+      case "compress":
+        return [await compressPdfFile(files[0].file)];
+      default:
+        throw new Error("Unsupported tool.");
+    }
+  }
+
+  function ensureValidSelection() {
+    if (files.length === 0) {
+      throw new Error("Upload a file before running a tool.");
+    }
+
+    if (files.some((item) => item.error)) {
+      throw new Error("One or more files could not be read. Replace those files and try again.");
+    }
+
+    if (activeTool === "merge" && files.length < 2) {
+      throw new Error("Merge needs at least two PDF files.");
+    }
+
+    if (activeTool === "merge" && mergeComposerPages.length === 0) {
+      throw new Error("No merge pages are available yet.");
+    }
+
+    if (activeTool === "imageToPdf" && files.some((item) => isPdfFile(item.file))) {
+      throw new Error("Image to PDF only accepts JPG and PNG files.");
+    }
+  }
+
+  function removeFile(id: string) {
+    setFiles((current) => current.filter((item) => item.id !== id));
+  }
+
+  function moveFile(id: string, direction: -1 | 1) {
+    setFiles((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) {
+        return current;
+      }
+
+      const clone = [...current];
+      const [file] = clone.splice(index, 1);
+      clone.splice(nextIndex, 0, file);
+      return clone;
+    });
+  }
+
+  function moveMergePage(id: string, direction: -1 | 1) {
+    setMergeComposerPages((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) {
+        return current;
+      }
+
+      const clone = [...current];
+      const [page] = clone.splice(index, 1);
+      clone.splice(nextIndex, 0, page);
+      return clone;
+    });
+  }
+
+  function handleDropAreaDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(true);
+  }
+
+  function handleDropAreaDragLeave(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(false);
+  }
+
+  async function handleDropAreaDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    const droppedFiles = Array.from(event.dataTransfer.files);
+    await addFiles(droppedFiles);
+  }
+
+  function toggleSplitPage(pageNumber: number) {
+    if (splitEveryPage) {
+      return;
+    }
+
+    setVisualSplitPages((current) => {
+      const exists = current.includes(pageNumber);
+      const next = exists ? current.filter((page) => page !== pageNumber) : [...current, pageNumber];
+      const sorted = [...next].sort((left, right) => left - right);
+      setSplitSelection(sorted.join(","));
+      return sorted;
+    });
+  }
+
+  function handleSplitSelectionChange(value: string) {
+    setSplitSelection(value);
+    const parsed = value
+      .split(",")
+      .map((segment) => Number(segment.trim()))
+      .filter((page) => Number.isInteger(page) && page > 0);
+    setVisualSplitPages([...new Set(parsed)].sort((left, right) => left - right));
+  }
+
+  function handleContactFieldChange(field: keyof ContactForm, value: string) {
+    setContactForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function handleContactSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setContactStatus("");
+    setContactSubmitting(true);
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: contactForm.name.trim(),
+          email: contactForm.email.trim(),
+          message: contactForm.message.trim(),
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message ?? "Unable to send your message right now.");
+      }
+
+      setContactStatus(result.message ?? "Thanks, your message has been saved.");
+      setContactForm({
+        name: "",
+        email: "",
+        message: "",
+      });
+    } catch (contactRequestError) {
+      const isNetworkIssue = contactRequestError instanceof TypeError;
+      const message = isNetworkIssue
+        ? "Contact server is not available right now. Start `npm.cmd run dev:server` and try again."
+        : contactRequestError instanceof Error
+          ? contactRequestError.message
+          : "Unable to send your message right now.";
+      setContactStatus(message);
+    } finally {
+      setContactSubmitting(false);
+    }
+  }
+
+  function selectTool(nextTool: ToolId) {
+    setActiveTool(nextTool);
+    setMobileNavOpen(false);
+  }
+
+
+  function handleAuthFieldChange(field: keyof AuthForm, value: string) {
+    setAuthForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthError("");
+
+    const email = authForm.email.trim().toLowerCase();
+    const password = authForm.password.trim();
+    const name = authForm.name.trim();
+
+    if (!email || !password || (authMode === "signup" && !name)) {
+      setAuthError("Fill in all required fields to continue.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setAuthError("Password must be at least 6 characters long.");
+      return;
+    }
+
+    const endpoint = authMode === "signup" ? "/api/auth/signup" : "/api/auth/login";
+    const payload = authMode === "signup" ? { name, email, password } : { email, password };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = (await response.json()) as { message?: string; token?: string; user?: SessionUser };
+      if (!response.ok || !result.token || !result.user) {
+        throw new Error(result.message ?? "Unable to authenticate right now.");
+      }
+
+      window.localStorage.setItem(authTokenStorageKey, result.token);
+      setSessionUser(result.user);
+      setAuthOpen(false);
+      setAuthForm({
+        name: "",
+        email: "",
+        password: "",
+      });
+    } catch (authRequestError) {
+      const isNetworkIssue = authRequestError instanceof TypeError;
+      const message = isNetworkIssue
+        ? "Auth server is not running. Start `npm.cmd run dev:server` and try again."
+        : authRequestError instanceof Error
+          ? authRequestError.message
+          : "Unable to authenticate right now.";
+      setAuthError(message);
+    }
+  }
+
+  async function handleLogout() {
+    const token = window.localStorage.getItem(authTokenStorageKey);
+    if (token) {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }).catch(() => undefined);
+    }
+
+    window.localStorage.removeItem(authTokenStorageKey);
+    setSessionUser(null);
+    setAuthMode("login");
+    setAuthError("");
+    setAuthForm({
+      name: "",
+      email: "",
+      password: "",
+    });
+  }
+  const authDialog = authOpen && !sessionUser ? (
+    <div className="auth-overlay" role="dialog" aria-modal="true" aria-label="Authentication">
+      <div className="auth-panel">
+        <section className="auth-hero">
+          <button type="button" className="auth-close" onClick={() => setAuthOpen(false)} aria-label="Close authentication dialog">
+            x
+          </button>
+          <a className="brand-lockup auth-brand" href="#home">
+            <img src="/logo.png" alt="PDF Solution logo" className="brand-logo" />
+            <div>
+              <p className="brand-name">PDF Solution</p>
+              <p className="brand-tagline">Secure access to your PDF workspace</p>
+            </div>
+          </a>
+          <p className="section-kicker">Welcome Back</p>
+          <h1>Sign in to manage all your PDF tools in one place.</h1>
+          <p className="auth-copy">
+            Create an account or log in to access merge, split, convert, edit, and download workflows with a clean product experience.
+          </p>
+          <div className="auth-benefits">
+            <div className="auth-benefit-card">
+              <strong>Fast workflow</strong>
+              <span>Upload, process, and download from one dashboard.</span>
+            </div>
+            <div className="auth-benefit-card">
+              <strong>Session saved</strong>
+              <span>Your browser session stays signed in until you log out.</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="auth-card">
+          <div className="auth-toggle-row">
+            <button type="button" className={`auth-toggle ${authMode === "login" ? "active" : ""}`} onClick={() => { setAuthMode("login"); setAuthError(""); }}>
+              Login
+            </button>
+            <button type="button" className={`auth-toggle ${authMode === "signup" ? "active" : ""}`} onClick={() => { setAuthMode("signup"); setAuthError(""); }}>
+              Sign Up
+            </button>
+          </div>
+
+          <div className="section-heading">
+            <p className="section-kicker">{authMode === "login" ? "Login" : "Create Account"}</p>
+            <h2>{authMode === "login" ? "Access your workspace" : "Start your PDF account"}</h2>
+            <p>{authMode === "login" ? "Log in with your registered email and password." : "Create an account to unlock your PDF workspace."}</p>
+          </div>
+
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            {authMode === "signup" ? (
+              <label>
+                <span>Full Name</span>
+                <input value={authForm.name} onChange={(event) => handleAuthFieldChange("name", event.target.value)} placeholder="Enter your full name" required />
+              </label>
+            ) : null}
+            <label>
+              <span>Email Address</span>
+              <input type="email" value={authForm.email} onChange={(event) => handleAuthFieldChange("email", event.target.value)} placeholder="Enter your email" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" value={authForm.password} onChange={(event) => handleAuthFieldChange("password", event.target.value)} placeholder="Enter your password" required />
+            </label>
+            {authError ? <p className="error-text">{authError}</p> : null}
+            <button type="submit" className="run-action auth-submit-button">
+              {authMode === "login" ? "Login to PDF Solution" : "Create Account"}
+            </button>
+          </form>
+        </section>
+      </div>
+    </div>
+  ) : null;
+  return (
+    <div className="site-shell">
+      <header className="site-header-wrap">
+        <div className="site-header-bar">
+          <a className="brand-lockup" href="#home">
+            <img src="/logo.png" alt="PDF Solution logo" className="brand-logo" />
+            <div>
+              <p className="brand-name">PDF Solution</p>
+              <p className="brand-tagline">All-in-one PDF workflows</p>
+            </div>
+          </a>
+
+          <button
+            type="button"
+            className={`mobile-nav-toggle ${mobileNavOpen ? "active" : ""}`}
+            onClick={() => setMobileNavOpen((current) => !current)}
+            aria-expanded={mobileNavOpen}
+            aria-label="Toggle navigation"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+
+          <nav className={`site-nav ${mobileNavOpen ? "open" : ""}`}>
+            <a href="#home">Home</a>
+            <a href="#features">Features</a>
+            <a href="#workspace">Workspace</a>
+            <a href="#contact">Support</a>
+          </nav>
+
+          <div className="header-cta-row">
+            {sessionUser ? (
+              <>
+                <div className="account-pill">
+                  <span className="account-name">{sessionUser.name}</span>
+                  <span className="account-email">{sessionUser.email}</span>
+                </div>
+                <button type="button" className="ghost-action" onClick={handleLogout}>Logout</button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="ghost-action"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthError("");
+                    setAuthOpen(true);
+                    setMobileNavOpen(false);
+                  }}
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  className="run-action header-signup-button"
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setAuthError("");
+                    setAuthOpen(true);
+                    setMobileNavOpen(false);
+                  }}
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section className="hero-section" id="home">
+          <div className="hero-grid">
+            <div className="hero-copy">
+              <p className="section-kicker">PDF Product Suite</p>
+              <h1>
+                All-in-One <span>PDF Solutions</span>
+              </h1>
+              <p className="hero-copy-text">
+                Convert, merge, edit, extract, compress, and manage your PDFs in one smooth website experience.
+              </p>
+              <div className="hero-actions">
+                <a href="#workspace" className="primary-hero-action">Upload PDF</a>
+                <a href="#features" className="secondary-hero-action">Try for Free</a>
+              </div>
+              <div className="hero-trust-row">
+                {trustPoints.map((point) => (
+                  <div key={point} className="trust-pill">{point}</div>
+                ))}
+              </div>
+            </div>
+
+            <div className="hero-visual" aria-hidden="true">
+              <div className="hero-window">
+                <div className="hero-window-bar" />
+                <div className="hero-window-lines">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+              <div className="hero-device" />
+              <img src="/logo.png" alt="" className="hero-logo-mark" />
+              <div className="floating-tool floating-tool-blue">Merge</div>
+              <div className="floating-tool floating-tool-red">Edit</div>
+              <div className="floating-tool floating-tool-gold">Secure</div>
+            </div>
+          </div>
+        </section>
+
+        <section className="shortcut-strip" id="features">
+          {featuredTools.map((item) =>
+            item ? (
+              <button
+                key={item.id}
+                type="button"
+                className={`shortcut-card ${activeTool === item.id ? "active" : ""}`}
+                onClick={() => selectTool(item.id)}
+              >
+                <span className="shortcut-icon"><ToolGlyph toolId={item.id} /></span>
+                <span>{item.title}</span>
+              </button>
+            ) : null,
+          )}
+        </section>
+
+        <section className="how-it-works-section">
+          <div className="section-heading section-divider center-heading">
+            <p className="section-kicker">How It Works</p>
+            <h2>Upload, choose, download</h2>
+            <p>A simple three-step flow designed to keep the website clean and the tools easy to use.</p>
+          </div>
+
+          <div className="how-it-works-grid">
+            <article className="how-card">
+              <span className="how-step">01</span>
+              <h3>Upload Your PDF</h3>
+              <p>Drag files into the workspace or browse from your device in one click.</p>
+            </article>
+            <article className="how-card">
+              <span className="how-step">02</span>
+              <h3>Pick the Right Tool</h3>
+              <p>Choose merge, split, extract, edit, convert, or compress from the tool strips.</p>
+            </article>
+            <article className="how-card">
+              <span className="how-step">03</span>
+              <h3>Download the Result</h3>
+              <p>Preview the output, review your files, and download the finished document.</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="popular-tools-section">
+          <div className="section-heading center-heading">
+            <p className="section-kicker">Popular Tools</p>
+            <h2>Explore our most used PDF tools</h2>
+            <p>Choose any tool card to open it instantly in the workspace below.</p>
+          </div>
+
+          <div className="popular-tools-grid">
+            {toolDefinitions.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`popular-tool-card ${activeTool === item.id ? "active" : ""}`}
+                onClick={() => selectTool(item.id)}
+              >
+                <span className="popular-tool-icon"><ToolGlyph toolId={item.id} /></span>
+                <strong>{item.title}</strong>
+                <p>{item.description}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="workspace-section" id="workspace">
+          <div className="workspace-shell">
+            <div className="workspace-header">
+              <div>
+                <p className="section-kicker">Workspace</p>
+                <h2>{tool.title}</h2>
+                <p>{tool.note}</p>
+              </div>
+              <div className="workspace-status-row">
+                <div className="mini-stat">
+                  <span>Files</span>
+                  <strong>{tool.multi ? "Multiple" : "Single"}</strong>
+                </div>
+                <div className="mini-stat">
+                  <span>Accepts</span>
+                  <strong>{tool.accept.split(",")[0]}</strong>
+                </div>
+                <div className="mini-stat">
+                  <span>Status</span>
+                  <strong>{busy ? "Working" : "Ready"}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="workspace-tool-tabs">
+              {toolDefinitions.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`workspace-tool-tab ${activeTool === item.id ? "active" : ""}`}
+                  onClick={() => selectTool(item.id)}
+                >
+                  <span className="tab-tool-icon"><ToolGlyph toolId={item.id} /></span>
+                  {item.title}
+                </button>
+              ))}
+            </div>
+
+            <div className="workspace-flow-card">
+              <section className="workspace-block upload-block">
+                <div className="section-heading">
+                  <p className="section-kicker">Step 1</p>
+                  <h3>Upload Files</h3>
+                  <p>Drop files here or browse from your device to begin.</p>
+                </div>
+
+                <label
+                  className={`upload-dropzone ${dragActive ? "drag-active" : ""}`}
+                  onDragOver={handleDropAreaDragOver}
+                  onDragLeave={handleDropAreaDragLeave}
+                  onDrop={handleDropAreaDrop}
+                >
+                  <input
+                    type="file"
+                    accept={tool.accept}
+                    multiple={tool.multi}
+                    onChange={handleFileSelection}
+                  />
+                  <strong>Drop files here or click to browse</strong>
+                  <span>{tool.accept.split(",").join("  ")}</span>
+                </label>
+
+                <div className="upload-meta-row">
+                  <div className="meta-card">
+                    <span>Tool Mode</span>
+                    <strong>{tool.multi ? "Batch friendly" : "Single file"}</strong>
+                  </div>
+                  <div className="meta-card">
+                    <span>Message</span>
+                    <strong>{status}</strong>
+                  </div>
+                </div>
+
+                {error ? <p className="error-text">{error}</p> : null}
+              </section>
+
+              <section className="workspace-block options-block">
+                <div className="section-heading">
+                  <p className="section-kicker">Step 2</p>
+                  <h3>Options</h3>
+                  <p>Adjust the settings required for this tool.</p>
+                </div>
+
+                {activeTool === "split" ? (
+                  <div className="control-stack">
+                    <label>
+                      <span>Page selection</span>
+                      <input
+                        value={splitSelection}
+                        onChange={(event) => handleSplitSelectionChange(event.target.value)}
+                        placeholder="1-3,5"
+                        disabled={splitEveryPage}
+                      />
+                    </label>
+                    <label className="checkbox-row align-start">
+                      <input
+                        type="checkbox"
+                        checked={splitEveryPage}
+                        onChange={(event) => setSplitEveryPage(event.target.checked)}
+                      />
+                      <span>Export every page as a separate PDF</span>
+                    </label>
+                  </div>
+                ) : null}
+
+                {activeTool === "merge" ? (
+                  <div className="helper-box">
+                    <strong>Visual merge is enabled</strong>
+                    <p>Use the preview section below to reorder pages before exporting.</p>
+                  </div>
+                ) : null}
+
+                {(activeTool === "extract" || activeTool === "word") ? (
+                  <div className="control-stack">
+                    <label className="checkbox-row align-start">
+                      <input
+                        type="checkbox"
+                        checked={enableOcr}
+                        onChange={(event) => setEnableOcr(event.target.checked)}
+                      />
+                      <span>Enable OCR for scanned PDFs</span>
+                    </label>
+                    <div className="helper-box">
+                      <strong>Use OCR when needed</strong>
+                      <p>Scanned PDFs take longer, but OCR helps recover text from images.</p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeTool === "edit" ? (
+                  <div className="control-stack">
+                    <label>
+                      <span>Rotate pages</span>
+                      <select value={rotation} onChange={(event) => setRotation(event.target.value)}>
+                        <option value="0">No rotation</option>
+                        <option value="90">90 degrees</option>
+                        <option value="180">180 degrees</option>
+                        <option value="270">270 degrees</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Remove pages</span>
+                      <input
+                        value={removePages}
+                        onChange={(event) => setRemovePages(event.target.value)}
+                        placeholder="2,4-6"
+                      />
+                    </label>
+                    <label>
+                      <span>Watermark text</span>
+                      <input
+                        value={watermark}
+                        onChange={(event) => setWatermark(event.target.value)}
+                        placeholder="CONFIDENTIAL"
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
+                {activeTool !== "split" && activeTool !== "edit" && activeTool !== "merge" && activeTool !== "extract" && activeTool !== "word" ? (
+                  <div className="helper-box">
+                    <strong>No extra setup needed</strong>
+                    <p>This tool can run directly with the uploaded files.</p>
+                  </div>
+                ) : null}
+
+                <button type="button" className="run-action" onClick={runTool} disabled={busy}>
+                  {busy ? "Working..." : `Run ${tool.title}`}
+                </button>
+              </section>
+            </div>
+
+            <div className="workspace-detail-grid">
+              <section className="workspace-card" id="files">
+                <div className="card-head">
+                  <div>
+                    <p className="section-kicker">Step 3</p>
+                    <h3>Review Files</h3>
+                  </div>
+                  <span className="badge-pill">{files.length} loaded</span>
+                </div>
+
+                {files.length === 0 ? (
+                  <p className="muted-text">No files loaded yet.</p>
+                ) : (
+                  <div className="file-list">
+                    {files.map((item, index) => (
+                      <article key={item.id} className="file-row">
+                        <div>
+                          <strong>{item.file.name}</strong>
+                          <p>
+                            {formatBytes(item.file.size)}
+                            {typeof item.pageCount === "number" ? ` � ${item.pageCount} pages` : ""}
+                          </p>
+                          {item.error ? <p className="error-text">{item.error}</p> : null}
+                        </div>
+                        <div className="file-action-row">
+                          {activeTool === "merge" || activeTool === "imageToPdf" ? (
+                            <>
+                              <button type="button" onClick={() => moveFile(item.id, -1)} disabled={index === 0}>
+                                Up
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveFile(item.id, 1)}
+                                disabled={index === files.length - 1}
+                              >
+                                Down
+                              </button>
+                            </>
+                          ) : null}
+                          <button type="button" onClick={() => removeFile(item.id)}>
+                            Remove
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="workspace-card" id="preview">
+                <div className="card-head">
+                  <div>
+                    <p className="section-kicker">Preview</p>
+                    <h3>{activeTool === "merge" ? "Merge Composer" : "PDF Preview"}</h3>
+                  </div>
+                  {activeTool === "merge" ? (
+                    <span className="badge-pill">{mergeComposerPages.length} pages</span>
+                  ) : primaryPreview ? (
+                    <span className="badge-pill">{primaryPreview.pageCount} pages</span>
+                  ) : null}
+                </div>
+
+                {previewLoading ? <p className="muted-text">Rendering preview...</p> : null}
+
+                {!previewLoading && activeTool !== "merge" && !primaryPreview ? (
+                  <div className="helper-box">
+                    <strong>No preview available yet</strong>
+                    <p>Upload a PDF to see a larger preview and page thumbnails here.</p>
+                  </div>
+                ) : null}
+
+                {!previewLoading && activeTool === "merge" && mergeComposerPages.length === 0 ? (
+                  <div className="helper-box">
+                    <strong>No merge pages yet</strong>
+                    <p>Upload at least two PDFs and their pages will appear here for visual ordering.</p>
+                  </div>
+                ) : null}
+
+                {activeTool === "merge" && mergeComposerPages.length > 0 ? (
+                  <div className="merge-composer-grid">
+                    {mergeComposerPages.map((page, index) => (
+                      <article key={page.id} className="merge-page-card">
+                        <img src={page.image} alt={`${page.fileName} page ${page.pageNumber}`} className="thumbnail-image" />
+                        <div>
+                          <strong>{page.fileName}</strong>
+                          <p>Page {page.pageNumber}</p>
+                        </div>
+                        <div className="file-action-row compact-actions">
+                          <button type="button" onClick={() => moveMergePage(page.id, -1)} disabled={index === 0}>
+                            Left
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveMergePage(page.id, 1)}
+                            disabled={index === mergeComposerPages.length - 1}
+                          >
+                            Right
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+
+                {activeTool !== "merge" && primaryPreview ? (
+                  <div className="preview-layout">
+                    <div className="preview-stage">
+                      <img src={primaryPreview.heroImage} alt="PDF preview" className="preview-hero" />
+                    </div>
+                    <div className="thumbnail-grid">
+                      {primaryPreview.thumbnails.map((thumbnail) => {
+                        const selected = visualSplitPages.includes(thumbnail.pageNumber);
+                        const splitMode = activeTool === "split" && !splitEveryPage;
+                        return (
+                          <button
+                            key={thumbnail.pageNumber}
+                            type="button"
+                            className={`thumbnail-card ${selected ? "selected" : ""} ${splitMode ? "selectable" : ""}`}
+                            onClick={() => splitMode && toggleSplitPage(thumbnail.pageNumber)}
+                          >
+                            <img src={thumbnail.image} alt={`Page ${thumbnail.pageNumber}`} className="thumbnail-image" />
+                            <span>Page {thumbnail.pageNumber}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            </div>
+
+            <section className="workspace-card" id="results">
+              <div className="card-head">
+                <div>
+                  <p className="section-kicker">Step 4</p>
+                  <h3>Download Results</h3>
+                </div>
+                {canBundleResults ? (
+                  <button type="button" className="secondary-action" onClick={downloadAllResults} disabled={busy}>
+                    Download All as ZIP
+                  </button>
+                ) : null}
+              </div>
+
+              {results.length === 0 ? (
+                <div className="helper-box">
+                  <strong>No result yet</strong>
+                  <p>Run the selected tool and your output files will appear here.</p>
+                </div>
+              ) : (
+                <div className="result-list">
+                  {results.map((result) => (
+                    <article key={result.id} className="result-card">
+                      <div>
+                        <strong>{result.name}</strong>
+                        <p>{result.summary}</p>
+                      </div>
+                      <a className="download-link" href={result.url} download={result.name}>
+                        Download
+                      </a>
+                      {result.textPreview ? (
+                        <textarea readOnly value={result.textPreview} className="preview-box" />
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <footer className="site-footer" id="contact">
+        <div className="footer-top">
+          <div>
+            <p className="section-kicker">Fast & Reliable PDF Solutions</p>
+            <h2>Built for simple uploads, quick edits, and smooth downloads.</h2>
+          </div>
+          <div className="footer-social-row">
+            <a href={githubLink} target="_blank" rel="noreferrer">GitHub</a>
+            <a href={linkedinLink} target="_blank" rel="noreferrer">LinkedIn</a>
+            <a href={instagramLink} target="_blank" rel="noreferrer">Instagram</a>
+          </div>
+        </div>
+
+        <div className="footer-bottom-grid">
+          <section className="footer-contact-card">
+            <img src="/logo.png" alt="PDF Solution logo" className="brand-logo footer-logo" />
+            <p className="footer-owner">Vishal Tiwari</p>
+            <a href={`tel:${contactPhone}`}>{contactPhone}</a>
+            <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
+            <p>{contactAddress}</p>
+          </section>
+
+          <section className="footer-contact-form-card">
+            <div className="section-heading">
+              <p className="section-kicker">Contact Form</p>
+              <h3>Send a message</h3>
+            </div>
+            <form className="footer-contact-form" onSubmit={handleContactSubmit}>
+              <label>
+                <span>Your Name</span>
+                <input
+                  value={contactForm.name}
+                  onChange={(event) => handleContactFieldChange("name", event.target.value)}
+                  placeholder="Enter your name"
+                  required
+                />
+              </label>
+              <label>
+                <span>Email Address</span>
+                <input
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(event) => handleContactFieldChange("email", event.target.value)}
+                  placeholder="Enter your email"
+                  required
+                />
+              </label>
+              <label className="message-field">
+                <span>Message</span>
+                <textarea
+                  value={contactForm.message}
+                  onChange={(event) => handleContactFieldChange("message", event.target.value)}
+                  placeholder="Tell Vishal what you need help with"
+                  required
+                />
+              </label>
+              <button type="submit" className="run-action footer-submit-button" disabled={contactSubmitting}>
+                {contactSubmitting ? "Sending..." : "Send Message"}
+              </button>
+            </form>
+            {contactStatus ? <p className="footer-success">{contactStatus}</p> : null}
+          </section>
+        </div>
+      </footer>
+      {authDialog}
+    </div>
+  );
+}
+
+function isPdfFile(file: File) {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+}
+
+function formatBytes(value: number) {
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function triggerDownload(url: string, fileName: string) {
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+export default App;
+

@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(ls F:/pdfsolution/.env*)",
+      "Bash(curl -s http://localhost:3001/api/app/config)",
+      "Bash(curl -s -X POST http://localhost:3001/api/auth/google -H \"Content-Type: application/json\" -d '{\"credential\":\"test\"}')",
+      "Bash(curl -s --max-time 15 \"https://www.ilovepdf.com\")",
+      "Bash(python3 -c \"import sys; content=sys.stdin.read\\(\\); print\\(content[:8000]\\)\")",
+      "mcp__Desktop_Commander__list_directory",
+      "Bash(curl -s --max-time 15 \"https://smallpdf.com\")",
+      "mcp__Desktop_Commander__read_file",
+      "WebFetch(domain:www.ilovepdf.com)",
+      "WebFetch(domain:smallpdf.com)",
+      "WebFetch(domain:www.pdf24.org)",
+      "WebFetch(domain:acrobat.adobe.com)",
+      "WebFetch(domain:pdfcandy.com)",
+      "WebSearch",
+      "WebFetch(domain:www.adobe.com)",
+      "Bash(grep -n \"dummy\\\\|Lorem\\\\|coming soon\\\\|test\\\\|fake\\\\|TODO\\\\|FIXME\\\\|XXX\\\\|HACK\\\\|placeholder\\\\|hardcoded\" \"/f/pdfsolution/src/pages/\"*.tsx -i)",
+      "Bash(grep -n \"??\\\\|demo\\\\|example\\\\|sample\" \"/f/pdfsolution/src/pages/\"*.tsx \"/f/pdfsolution/src/components/\"*.tsx \"/f/pdfsolution/src/lib/\"*.tsx -i)",
+      "WebFetch(domain:tools.pdf24.org)",
+      "Bash(grep -n \"//.*TODO\\\\|/\\\\*.*TODO\\\\|// FIXME\\\\|/\\\\*.*FIXME\\\\|// Disabled\\\\|// Skip\" \"/f/pdfsolution/src/\"*.tsx \"/f/pdfsolution/src/pages/\"*.tsx \"/f/pdfsolution/src/components/\"*.tsx \"/f/pdfsolution/src/lib/\"*.tsx \"/f/pdfsolution/server/index.ts\")",
+      "WebFetch(domain:helpx.adobe.com)",
+      "Bash(rename \"F:\\\\pdfsolution\\\\src\\\\App.backup.tsx\" \"App.backup.txt\")"
+    ]
+  }
+}
