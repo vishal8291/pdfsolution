@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: pdfsolution-server
+    env: node
+    buildCommand: npm install
+    startCommand: node --import tsx/esm index.ts
+    envVars:
+      - key: MONGODB_URI
+        value: mongodb+srv://vishaltiwari101999_db_user:vish2323@cluster0.bsi7jvp.mongodb.net/pdfsolution?retryWrites=true&w=majority&appName=Cluster0
+      - key: MONGODB_DB_NAME
+        value: pdfsolution
+      - key: PORT
+        value: 10000
+      - key: GOOGLE_CLIENT_ID
+        value: 991758381289-slhpjouvhhnlmvgliff0935slsodjodm.apps.googleusercontent.com
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        value: vishaltiwari101999@gmail.com
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        value: vishaltiwari101999@gmail.com
+      - key: SMTP_SECURE
+        value: false
+      - key: RAZORPAY_KEY_ID
+        value: rzp_test_Sb7KKDwEEiAJaz
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: NODE_ENV
+        value: production
