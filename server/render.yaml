@@ -6,7 +6,7 @@ services:
     startCommand: node --import tsx/esm index.ts
     envVars:
       - key: MONGODB_URI
-        value: mongodb+srv://vishaltiwari101999_db_user:vish2323@cluster0.bsi7jvp.mongodb.net/pdfsolution?retryWrites=true&w=majority&appName=Cluster0
+        value: mongodb+srv://vishaltiwari101999_db_user:vishal2323@cluster0.bsi7jvp.mongodb.net/pdfsolution?retryWrites=true&w=majority&appName=Cluster0
       - key: MONGODB_DB_NAME
         value: pdfsolution
       - key: PORT
