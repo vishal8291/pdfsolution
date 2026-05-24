@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FaArrowRight, FaBolt, FaCheckCircle, FaLock, FaShieldAlt, FaStar, FaUsers, FaFileAlt, FaClock } from "react-icons/fa";
 import { useAuth } from "../lib/AuthContext";
+import AdBanner from "../components/AdBanner";
 
 type Category = "All" | "Organize PDF" | "Optimize PDF" | "Convert PDF" | "Edit PDF" | "PDF Security" | "Content";
 
@@ -139,6 +140,11 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Ad Banner — between trust section and testimonials (free/guest users only) */}
+      <div className="container ad-slot-horizontal">
+        <AdBanner slot="1234567890" format="horizontal" />
+      </div>
 
       {/* Testimonials */}
       <section className="testimonials-section">

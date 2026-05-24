@@ -2,6 +2,7 @@ import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "re
 import { useSearchParams, Link } from "react-router-dom";
 import { FaDownload, FaFileAlt, FaTrash, FaChevronUp, FaChevronDown, FaBolt, FaLock } from "react-icons/fa";
 import { useUsageLimit, FREE_DAILY_LIMIT } from "../lib/useUsageLimit";
+import AdBanner from "../components/AdBanner";
 import { toolDefinitions, type ToolId } from "../data";
 import { buildPdfPreview, type PdfPreview } from "../pdfPreview";
 import {
@@ -482,6 +483,10 @@ export default function ToolsPage() {
                   </li>
                 ))}
               </ul>
+            )}
+            {/* Ad shown after results for free/guest users */}
+            {results.length > 0 && (
+              <AdBanner slot="0987654321" format="horizontal" className="ad-slot-horizontal" />
             )}
           </section>
         </div>

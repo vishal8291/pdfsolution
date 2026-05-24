@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaArrowRight, FaCreditCard, FaHeadset, FaCheckCircle, FaUser } from "react-icons/fa";
+import { FaArrowRight, FaCreditCard, FaHeadset, FaCheckCircle, FaUser, FaChartLine } from "react-icons/fa";
 import { useAuth } from "../lib/AuthContext";
 import { authHeaders, fetchJson } from "../lib/api";
 import type { DashboardSummary } from "../lib/types";
@@ -124,6 +124,42 @@ export default function DashboardPage() {
             )}
           </div>
         </section>
+
+        {/* Revenue Potential — shown only to free users as motivation */}
+        {user?.plan === "free" && (
+          <section className="dashboard-section">
+            <h2>📈 Revenue Potential of This Platform</h2>
+            <div className="earnings-card">
+              <div className="earnings-card-head">
+                <div className="earnings-card-icon"><FaChartLine /></div>
+                <div>
+                  <h2 style={{ margin: 0 }}>How PDF Solution earns money</h2>
+                  <p className="earnings-card-sub">Subscriptions + Google AdSense — growing every month</p>
+                </div>
+              </div>
+              <div className="earnings-tiers">
+                <div className="earnings-tier">
+                  <p className="earnings-tier-label">25 Pro users</p>
+                  <p className="earnings-tier-range">₹4,975/mo</p>
+                  <p className="earnings-tier-detail">Early stage · just getting started</p>
+                </div>
+                <div className="earnings-tier">
+                  <p className="earnings-tier-label">100 Pro users</p>
+                  <p className="earnings-tier-range">₹19,900/mo</p>
+                  <p className="earnings-tier-detail">+ AdSense ₹2–5K · solid MRR</p>
+                </div>
+                <div className="earnings-tier">
+                  <p className="earnings-tier-label">250 Pro users</p>
+                  <p className="earnings-tier-range">₹49,750/mo</p>
+                  <p className="earnings-tier-detail">+ AdSense ₹8–15K · ₹57K+ total</p>
+                </div>
+              </div>
+              <p className="earnings-note">
+                💡 PDF tools get <strong>millions of Google searches</strong> daily ("merge PDF", "compress PDF", "PDF to Word"). With good SEO and consistent traffic, reaching 100 paying users is very achievable within 6–12 months. Upgrade to Pro to remove ads and support this platform's growth.
+              </p>
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );
