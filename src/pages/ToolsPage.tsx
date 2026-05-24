@@ -1,6 +1,7 @@
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { FaDownload, FaFileAlt, FaTrash, FaChevronUp, FaChevronDown } from "react-icons/fa";
+import { useSearchParams, Link } from "react-router-dom";
+import { FaDownload, FaFileAlt, FaTrash, FaChevronUp, FaChevronDown, FaBolt, FaLock } from "react-icons/fa";
+import { useUsageLimit, FREE_DAILY_LIMIT } from "../lib/useUsageLimit";
 import { toolDefinitions, type ToolId } from "../data";
 import { buildPdfPreview, type PdfPreview } from "../pdfPreview";
 import {
@@ -72,6 +73,7 @@ export default function ToolsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const toolParam = searchParams.get("tool") as ToolId | null;
   const validToolId = toolDefinitions.find((t) => t.id === toolParam)?.id ?? "merge";
+  const usage = useUsageLimit();
 
   const [activeTool, setActiveTool] = useState<ToolId>(validToolId);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -222,6 +224,15 @@ export default function ToolsPage() {
   }
 
   async function runTool() {
+    // Usage limit gate — free users: 3 PDFs/day
+    if (!usage.isPro) {
+      const allowed = await usage.increment();
+      if (!allowed) {
+        setError(`Daily limit of ${FREE_DAILY_LIMIT} PDFs reached. Upgrade to Pro for unlimited access.`);
+        return;
+      }
+    }
+
     setBusy(true); setError("");
     setStatus(activeTool === "ocr" ? "Running OCR — this may take a moment…" : `Running ${tool.title}…`);
     try {
@@ -419,8 +430,37 @@ export default function ToolsPage() {
 
             {previewLoading && <p className="ws-status">Generating preview…</p>}
 
-            <button type="button" className="btn btn-primary btn-run" onClick={runTool} disabled={busy || !files.length}>
-              {busy ? (activeTool === "ocr" ? "Running OCR…" : `Running ${tool.title}…`) : `Run ${tool.title}`}
+            {/* Usage meter — only shown for free/guest users */}
+            {!usage.isPro && !usage.loading && (
+              <div className={`usage-meter ${usage.canProcess ? "" : "usage-meter--limit"}`}>
+                <div className="usage-meter-header">
+                  {usage.canProcess ? (
+                    <span><FaBolt className="usage-icon" /> {FREE_DAILY_LIMIT - usage.used} of {FREE_DAILY_LIMIT} free PDFs remaining today</span>
+                  ) : (
+                    <span><FaLock className="usage-icon" /> Daily limit reached ({FREE_DAILY_LIMIT}/{FREE_DAILY_LIMIT})</span>
+                  )}
+                  <Link to="/pricing" className="usage-upgrade-link">Upgrade for unlimited →</Link>
+                </div>
+                <div className="usage-meter-bar">
+                  <div
+                    className="usage-meter-fill"
+                    style={{ width: `${Math.min(100, (usage.used / FREE_DAILY_LIMIT) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="btn btn-primary btn-run"
+              onClick={runTool}
+              disabled={busy || !files.length || (!usage.isPro && !usage.canProcess)}
+            >
+              {busy
+                ? (activeTool === "ocr" ? "Running OCR…" : `Running ${tool.title}…`)
+                : !usage.isPro && !usage.canProcess
+                  ? "Daily limit reached — upgrade to continue"
+                  : `Run ${tool.title}`}
             </button>
           </section>
 

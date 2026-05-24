@@ -99,6 +99,14 @@ type SubscriptionRecord = {
   updatedAt: Date;
 };
 
+type UsageRecord = {
+  _id?: string;
+  userId: string;         // user ID or IP hash for guests
+  dateKey: string;        // "YYYY-MM-DD" — one doc per user per day
+  count: number;          // PDFs processed today
+  updatedAt: Date;
+};
+
 type SessionUser = {
   id: string;
   name: string;
@@ -127,8 +135,8 @@ const appBaseUrl = process.env.APP_BASE_URL ?? "http://localhost:5173";
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
 const razorpayKeyId = process.env.RAZORPAY_KEY_ID ?? "";
 const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET ?? "";
-const razorpayPlanAmountPro = Number(process.env.RAZORPAY_PLAN_AMOUNT_PRO ?? 49900);
-const razorpayPlanAmountTeam = Number(process.env.RAZORPAY_PLAN_AMOUNT_TEAM ?? 149900);
+const razorpayPlanAmountPro = Number(process.env.RAZORPAY_PLAN_AMOUNT_PRO ?? 19900);   // ₹199
+const razorpayPlanAmountTeam = Number(process.env.RAZORPAY_PLAN_AMOUNT_TEAM ?? 49900); // ₹499
 const smtpHost = process.env.SMTP_HOST ?? "";
 const smtpPort = Number(process.env.SMTP_PORT ?? 587);
 const smtpSecure = String(process.env.SMTP_SECURE ?? "false").toLowerCase() === "true";
@@ -216,33 +224,54 @@ function isStrongPassword(pw: string): boolean {
   return pw.length >= 8 && /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw);
 }
 
+const FREE_DAILY_LIMIT = 3;   // PDFs per day for free users
+
 const publicPlans: PublicPlan[] = [
   {
     id: "free",
     title: "Starter",
-    priceLabel: "Rs 0",
+    priceLabel: "₹0",
     interval: "Forever free",
-    description: "For trying core PDF tools with light usage.",
-    features: ["Merge, split, compress, and extract", "Basic support form access", "Browser-based workflows"],
-    cta: "Current entry plan",
+    description: "Perfect for occasional PDF tasks — no credit card needed.",
+    features: [
+      `${FREE_DAILY_LIMIT} PDFs per day`,
+      "Merge, split, compress & rotate",
+      "PDF to JPG & Image to PDF",
+      "Extract text & add page numbers",
+      "100% browser-based (no uploads)",
+    ],
+    cta: "Get Started Free",
   },
   {
     id: "pro",
     title: "Professional",
-    priceLabel: "Rs 499",
+    priceLabel: "₹199",
     interval: "per month",
-    description: "For freelancers and power users who need premium flows.",
-    features: ["Priority processing", "Account dashboard and history", "Premium conversions and support"],
-    cta: "Upgrade to Pro",
+    description: "For freelancers and power users — unlimited everything.",
+    features: [
+      "Unlimited PDFs per day",
+      "All 12 tools including OCR",
+      "Bulk processing & ZIP download",
+      "Priority email support",
+      "Dashboard & usage history",
+      "Cancel anytime",
+    ],
+    cta: "Upgrade to Pro — ₹199/mo",
   },
   {
     id: "team",
     title: "Business",
-    priceLabel: "Rs 1499",
+    priceLabel: "₹499",
     interval: "per month",
-    description: "For teams managing shared document workflows.",
-    features: ["Team-oriented billing", "High-volume processing", "Faster support response"],
-    cta: "Start Business plan",
+    description: "For teams managing high-volume document workflows.",
+    features: [
+      "Everything in Professional",
+      "Team billing & shared dashboard",
+      "High-volume batch processing",
+      "Dedicated support with SLA",
+      "Early access to new tools",
+    ],
+    cta: "Start Business Plan",
   },
 ];
 
@@ -250,6 +279,7 @@ let usersCollection: Collection<StoredUser>;
 let contactMessagesCollection: Collection<ContactMessage>;
 let supportTicketsCollection: Collection<SupportTicket>;
 let otpCollection: Collection<OtpRecord>;
+let usageCollection: Collection<UsageRecord>;
 let subscriptionsCollection: Collection<SubscriptionRecord>;
 
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
@@ -530,11 +560,13 @@ async function connectToDatabase() {
   otpCollection = db.collection<OtpRecord>("otpCodes");
   subscriptionsCollection = db.collection<SubscriptionRecord>("subscriptions");
 
+  usageCollection = db.collection<UsageRecord>("usage");
   await usersCollection.createIndex({ email: 1 }, { unique: true });
   await contactMessagesCollection.createIndex({ createdAt: -1 });
   await supportTicketsCollection.createIndex({ createdAt: -1 });
   await otpCollection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   await subscriptionsCollection.createIndex({ userId: 1, createdAt: -1 });
+  await usageCollection.createIndex({ userId: 1, dateKey: 1 }, { unique: true });
 
   log.info(`Connected to MongoDB`, { db: databaseName });
 }
@@ -1150,6 +1182,53 @@ const server = createServer(async (req, res) => {
       } else {
         sendJson(res, 200, { success: true, message: "Payment verified." }, req);
       }
+      return;
+    }
+
+    // ── USAGE TRACKING ──────────────────────────────────────────────────────
+    // GET /api/usage/status
+    if (req.method === "GET" && req.url === "/api/usage/status") {
+      const auth = getAuthenticatedUser(req);
+      const dateKey = new Date().toISOString().slice(0, 10);
+      if (!auth) {
+        sendJson(res, 200, { count: 0, limit: FREE_DAILY_LIMIT, plan: "free", isGuest: true }, req);
+        return;
+      }
+      const isPro = auth.user.plan === "pro" || auth.user.plan === "team";
+      const record = await usageCollection.findOne({ userId: auth.user.id, dateKey });
+      sendJson(res, 200, {
+        count: record?.count ?? 0,
+        limit: isPro ? null : FREE_DAILY_LIMIT,
+        plan: auth.user.plan,
+        isGuest: false,
+      }, req);
+      return;
+    }
+
+    // POST /api/usage/track
+    if (req.method === "POST" && req.url === "/api/usage/track") {
+      const auth = getAuthenticatedUser(req);
+      if (!auth) {
+        sendJson(res, 200, { ok: true }, req);
+        return;
+      }
+      const isPro = auth.user.plan === "pro" || auth.user.plan === "team";
+      if (isPro) {
+        sendJson(res, 200, { ok: true, unlimited: true }, req);
+        return;
+      }
+      const dateKey = new Date().toISOString().slice(0, 10);
+      const record = await usageCollection.findOneAndUpdate(
+        { userId: auth.user.id, dateKey },
+        { $inc: { count: 1 }, $set: { updatedAt: new Date() }, $setOnInsert: { userId: auth.user.id, dateKey } },
+        { upsert: true, returnDocument: "after" }
+      );
+      const count = record?.count ?? 1;
+      if (count > FREE_DAILY_LIMIT) {
+        sendJson(res, 429, { message: `Daily limit of ${FREE_DAILY_LIMIT} PDFs reached. Upgrade to Pro for unlimited access.`, limitReached: true, limit: FREE_DAILY_LIMIT, count }, req);
+        return;
+      }
+      sendJson(res, 200, { ok: true, count, limit: FREE_DAILY_LIMIT }, req);
       return;
     }
 

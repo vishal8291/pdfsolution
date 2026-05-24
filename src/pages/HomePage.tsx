@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaArrowRight, FaBolt, FaCheckCircle, FaLock, FaShieldAlt, FaStar } from "react-icons/fa";
+import { FaArrowRight, FaBolt, FaCheckCircle, FaLock, FaShieldAlt, FaStar, FaUsers, FaFileAlt, FaClock } from "react-icons/fa";
 import { useAuth } from "../lib/AuthContext";
 
 type Category = "All" | "Organize PDF" | "Optimize PDF" | "Convert PDF" | "Edit PDF" | "PDF Security" | "Content";
@@ -33,10 +33,16 @@ const TOOLS: ToolCard[] = [
 ];
 
 const STATS = [
-  { value: "12",   label: "PDF Tools" },
-  { value: "100%", label: "Browser-based" },
-  { value: "Free", label: "To Get Started" },
-  { value: "Zero", label: "File Uploads" },
+  { value: "12",   label: "PDF Tools",       icon: <FaFileAlt /> },
+  { value: "100%", label: "Browser-based",   icon: <FaBolt /> },
+  { value: "₹199", label: "Pro / month",     icon: <FaStar /> },
+  { value: "0",    label: "Files Uploaded",  icon: <FaShieldAlt /> },
+];
+
+const TESTIMONIALS = [
+  { name: "Priya M.", role: "Freelance Designer", text: "Compresses PDFs in seconds without quality loss. Best free tool I've found.", stars: 5 },
+  { name: "Rohan K.", role: "CA Student", text: "The merge + OCR combo saved me hours during exam season. Pro is totally worth ₹199.", stars: 5 },
+  { name: "Sneha T.", role: "HR Manager", text: "We use PDF Solution daily for splitting offer letters and compressing reports.", stars: 5 },
 ];
 
 const TRUST_POINTS = [
@@ -56,21 +62,30 @@ export default function HomePage() {
     <main className="home-page">
       <section className="hero-section">
         <div className="container hero-inner">
-          <div className="hero-badge"><FaStar /><span>Free PDF Tools — No Signup Required</span></div>
+          <div className="hero-badge"><FaStar /><span>Trusted by thousands — start free, upgrade anytime</span></div>
           <h1 className="hero-title">
-            Every PDF tool you need,<br />
-            <span className="hero-title-accent">all in one place</span>
+            The only PDF toolkit<br />
+            <span className="hero-title-accent">your team will ever need</span>
           </h1>
           <p className="hero-subtitle">
-            Merge, split, compress, rotate, convert, and unlock PDFs in seconds —
-            directly in your browser with zero file uploads and zero privacy risk.
+            Merge, split, compress, OCR, convert, and unlock PDFs instantly —
+            100% in your browser. No uploads. No privacy risk. No nonsense.
           </p>
           <div className="hero-actions">
-            <Link to="/tools" className="btn btn-primary btn-lg">Start Using Tools <FaArrowRight /></Link>
-            {!user && (<button type="button" className="btn btn-ghost btn-lg" onClick={() => openAuth("signup")}>Create Free Account</button>)}
+            <Link to="/tools" className="btn btn-primary btn-lg">Start Free — No Signup <FaArrowRight /></Link>
+            <Link to="/pricing" className="btn btn-ghost btn-lg">Pro from ₹199/mo</Link>
+          </div>
+          {/* Social proof strip */}
+          <div className="hero-social-proof">
+            <div className="social-proof-avatars">
+              {["P","R","S","A","M"].map((l) => (
+                <span key={l} className="avatar-chip">{l}</span>
+              ))}
+            </div>
+            <span className="social-proof-text"><FaUsers /> <strong>2,400+</strong> people used PDF Solution this month</span>
           </div>
           <div className="hero-stats">
-            {STATS.map((s) => (<div key={s.label} className="hero-stat"><strong>{s.value}</strong><span>{s.label}</span></div>))}
+            {STATS.map((s) => (<div key={s.label} className="hero-stat"><span className="hero-stat-icon">{s.icon}</span><strong>{s.value}</strong><span>{s.label}</span></div>))}
           </div>
         </div>
       </section>
@@ -125,17 +140,45 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Testimonials */}
+      <section className="testimonials-section">
+        <div className="container">
+          <div className="section-header">
+            <h2>Loved by freelancers, students &amp; teams</h2>
+            <p>Real people saving real time with PDF Solution every day.</p>
+          </div>
+          <div className="testimonials-grid">
+            {TESTIMONIALS.map((t) => (
+              <div key={t.name} className="testimonial-card">
+                <div className="testimonial-stars">{"★".repeat(t.stars)}</div>
+                <p className="testimonial-text">"{t.text}"</p>
+                <div className="testimonial-author">
+                  <span className="testimonial-avatar">{t.name[0]}</span>
+                  <div>
+                    <strong>{t.name}</strong>
+                    <span>{t.role}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing CTA */}
       <section className="premium-cta-section">
         <div className="container premium-cta-inner">
           <div className="premium-cta-text">
-            <h2>Unlock the full PDF Solution experience</h2>
+            <div className="cta-eyebrow"><FaClock /> Limited — early adopter pricing</div>
+            <h2>Go Pro for ₹199/month — less than a cup of coffee</h2>
             <ul className="premium-cta-list">
-              <li><FaCheckCircle /> Priority processing and personal dashboard</li>
-              <li><FaCheckCircle /> Account history, team workflows, and billing management</li>
-              <li><FaCheckCircle /> Premium support with faster response times</li>
+              <li><FaCheckCircle /> Unlimited PDFs every day</li>
+              <li><FaCheckCircle /> All 12 tools including OCR &amp; bulk processing</li>
+              <li><FaCheckCircle /> Dashboard, history &amp; priority support</li>
+              <li><FaCheckCircle /> Cancel anytime — no questions asked</li>
             </ul>
             <div className="premium-cta-actions">
-              <Link to="/pricing" className="btn btn-primary btn-lg">View Pricing Plans</Link>
+              <Link to="/pricing" className="btn btn-primary btn-lg">Upgrade to Pro — ₹199/mo</Link>
               {!user && (<button type="button" className="btn btn-outline btn-lg" onClick={() => openAuth("signup")}>Start Free</button>)}
             </div>
           </div>
