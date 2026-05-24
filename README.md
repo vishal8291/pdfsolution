@@ -1,76 +1,152 @@
 # PDF Solution
 
-PDF Solution is the starting point for an all-in-one PDF product. The goal is to give users a single app for everything they want to do with PDF files:
+> All-in-one PDF workspace — merge, split, compress, rotate, convert, OCR, and more — directly in your browser with zero file uploads.
 
-- Extract text, images, tables, and metadata
-- Merge files and reorder pages
-- Split PDFs into smaller documents
-- Edit PDF content and add annotations
-- Convert PDF to Word and other formats
-- Convert Office files or images into PDF
-- Compress, lock, unlock, and protect PDFs
+**Live Demo → [pdfsolution-seven.vercel.app](https://pdfsolution-seven.vercel.app)**
 
-## Current foundation
+---
 
-This repository now includes:
+## Features
 
-- A Vite + React + TypeScript frontend scaffold
-- A landing page that presents the product vision and core tool catalog
-- Structured data for feature groups, platform pillars, and delivery phases
+| Tool | Description |
+|------|-------------|
+| Merge PDF | Combine multiple PDFs with drag-and-drop page ordering |
+| Split PDF | Extract specific pages or split every page into its own file |
+| Compress PDF | Reduce file size while preserving quality — 100% in-browser |
+| Rotate PDF | Rotate all pages 90°, 180°, or 270° in one click |
+| PDF to Word | Convert PDF text into a fully editable DOCX file |
+| PDF to JPG | Export every page as a high-quality JPG image |
+| Image to PDF | Turn JPG / PNG images into a polished PDF |
+| Edit PDF | Remove pages, add watermark, rotate in one pass |
+| Add Page Numbers | Stamp numbered labels at the bottom of every page |
+| Unlock PDF | Remove PDF restrictions and re-save as an open file |
+| Extract Text | Pull readable text out of any PDF as a TXT file |
+| OCR PDF | Use Tesseract.js to extract text from scanned PDFs |
 
-## Suggested architecture
+---
 
-As we build the real app features, a clean module split can look like this:
+## Tech Stack
 
-1. `upload` for file intake, drag-and-drop, progress, and validation
-2. `pdf-engine` for merge, split, extract, and manipulation logic
-3. `editor` for page previews, annotations, and content controls
-4. `convert` for PDF-to-Word and document-to-PDF pipelines
-5. `security` for password protection and permissions
-6. `history` for recent jobs, download states, and retries
+**Frontend**
+- React 18 + TypeScript + Vite
+- React Router v7
+- Tailwind CSS
+- pdf-lib · pdfjs-dist · Tesseract.js (OCR) · JSZip · docx
 
-## Delivery roadmap
+**Backend**
+- Node.js (raw `node:http` — no Express) + TypeScript
+- MongoDB Atlas + native driver
+- Google OAuth2 (`google-auth-library`)
+- Razorpay payment gateway
+- Nodemailer (OTP email delivery)
 
-### Phase 1
+**DevOps**
+- Frontend → Vercel
+- Backend → Render
+- CI/CD → GitHub (auto-deploy on push)
 
-Ship the fast, high-value basics:
+---
 
-- Merge PDF
-- Split PDF
-- Extract text
-- Compress PDF
-- Basic convert flows
+## Architecture
 
-### Phase 2
+```
+pdfsolution/
+├── src/                   # React frontend (Vite)
+│   ├── pages/             # HomePage, ToolsPage, PricingPage, DashboardPage ...
+│   ├── components/        # AuthModal, ErrorBoundary
+│   ├── layout/            # Navbar, Footer, ProtectedRoute
+│   ├── lib/               # AuthContext, api.ts, types.ts
+│   ├── pdfTools.ts        # All PDF processing logic (browser-side)
+│   └── pdfPreview.ts      # PDF page thumbnail generation
+│
+└── server/                # Node.js backend
+    ├── index.ts           # Server entry — routing only
+    ├── db.ts              # MongoDB connection + collections
+    ├── logger.ts          # Structured JSON logger
+    ├── security.ts        # Rate limiting, lockout, sanitization, CORS
+    ├── session.ts         # In-memory session store (24-hour TTL)
+    ├── mailer.ts          # OTP email delivery
+    └── routes/
+        ├── app.ts         # Health check, app config, subscription plans
+        ├── auth.ts        # Signup, login, Google OAuth, OTP
+        ├── profile.ts     # User profile + dashboard
+        ├── contact.ts     # Contact form + support tickets
+        └── billing.ts     # Razorpay checkout + payment verification
+```
 
-Add interactive editing:
+---
 
-- Page reorder
-- Rotate and delete pages
-- Watermark support
-- Annotations and markup
+## Security Highlights
 
-### Phase 3
+- **Rate limiting** — 60 req/min globally, 20 req/min on auth routes
+- **Login lockout** — 5 failed attempts triggers 15-minute cooldown
+- **Password hashing** — scrypt with random salt (not bcrypt, more memory-hard)
+- **HMAC verification** — Razorpay payment signatures validated server-side
+- **Input sanitization** — all user text stripped of HTML/script tags
+- **Security headers** — CSP, HSTS, X-Frame-Options, Permissions-Policy
+- **OTP expiry** — TTL index on MongoDB, codes expire in 10 minutes
+- **Request body limit** — 100 KB max prevents DoS attacks
+- **Gzip compression** — responses > 512 bytes compressed automatically
 
-Expand into advanced workflows:
+---
 
-- OCR for scanned files
-- Smart field detection
-- AI summary and classification
-- Form support and signatures
+## Local Development
 
-## Next best implementation step
+### Prerequisites
+- Node.js 18+
+- MongoDB Atlas account (free tier works)
 
-The strongest next move is to build the first working processing flow end-to-end. I recommend:
-
-1. Create a dashboard layout for tool selection
-2. Implement upload + preview state
-3. Deliver one real tool first, such as merge or split
-4. Reuse that job pipeline for the rest of the tool suite
-
-## Run locally
+### Setup
 
 ```bash
+# Clone
+git clone https://github.com/vishal8291/pdfsolution.git
+cd pdfsolution
+
+# Install dependencies
 npm install
-npm run dev
+
+# Create .env in /server folder
+cp server/.env.example server/.env
+# Fill in: MONGODB_URI, GOOGLE_CLIENT_ID, RAZORPAY_KEY_ID, SMTP_*
+
+# Run frontend + backend together
+npm run dev          # frontend on :5173
+npm run dev:server   # backend on :3001
 ```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MONGODB_URI` | ✅ | MongoDB Atlas connection string |
+| `MONGODB_DB_NAME` | — | Database name (default: `pdfsolution`) |
+| `GOOGLE_CLIENT_ID` | — | Enables Google OAuth login |
+| `GOOGLE_CLIENT_SECRET` | — | Google OAuth secret |
+| `RAZORPAY_KEY_ID` | — | Enables Razorpay billing |
+| `RAZORPAY_KEY_SECRET` | — | Razorpay secret key |
+| `SMTP_HOST` | — | Enables OTP email (e.g. `smtp.gmail.com`) |
+| `SMTP_USER` | — | SMTP username |
+| `SMTP_PASS` | — | SMTP password / app password |
+| `SMTP_FROM` | — | From address for emails |
+
+---
+
+## Subscription Plans
+
+| Plan | Price | Features |
+|------|-------|----------|
+| Starter | Free | Core PDF tools, browser-based |
+| Professional | ₹499/month | Dashboard, history, premium support |
+| Business | ₹1499/month | Team billing, high-volume, fast support |
+
+Payments processed via **Razorpay** with server-side HMAC signature verification.
+
+---
+
+## Author
+
+**Vishal Tiwari** — Full Stack Developer
+- GitHub: [github.com/vishal8291](https://github.com/vishal8291)
+- LinkedIn: [linkedin.com/in/vishal-tiwari-158a5216b](https://linkedin.com/in/vishal-tiwari-158a5216b)
+- Email: vishaltiwari101999@gmail.com
