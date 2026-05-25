@@ -50,8 +50,22 @@ export function sanitize(str: string) {
   return str.replace(/<[^>]*>/g, "").replace(/[&"'`]/g, c =>
     c==="&"?"&amp;":c==='"'?"&quot;":c==="'"?"&#x27;":"&#x60;").trim();
 }
-export const isValidEmail    = (e: string) => /^[^s@]+@[^s@]+.[^s@]{2,}$/.test(e);
-export const isStrongPassword= (p: string) => p.length >= 8 && /[a-zA-Z]/.test(p) && /[0-9]/.test(p);
+export const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+/**
+ * Password rules (must pass all 4):
+ *  ✓ At least 8 characters
+ *  ✓ At least one uppercase letter (A–Z)
+ *  ✓ At least one lowercase letter (a–z)
+ *  ✓ At least one digit (0–9)
+ * Symbol is encouraged (shown in strength meter) but not enforced server-side.
+ */
+export function isStrongPassword(p: string): { ok: boolean; reason?: string } {
+  if (p.length < 8)          return { ok: false, reason: "Password must be at least 8 characters." };
+  if (!/[A-Z]/.test(p))      return { ok: false, reason: "Password must contain at least one uppercase letter (A–Z)." };
+  if (!/[a-z]/.test(p))      return { ok: false, reason: "Password must contain at least one lowercase letter (a–z)." };
+  if (!/[0-9]/.test(p))      return { ok: false, reason: "Password must contain at least one number (0–9)." };
+  return { ok: true };
+}
 export function isValidAvatarUrl(url: string) {
   if (!url) return true;
   try { const p = new URL(url); return p.protocol === "https:" && !p.hostname.includes("localhost"); } catch { return false; }

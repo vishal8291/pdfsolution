@@ -79,9 +79,10 @@ export async function handleSignup(req: IncomingMessage, res: ServerResponse) {
   const email    = body.email?.trim().toLowerCase() ?? "";
   const password = body.password ?? "";
 
-  if (!name)                        return sendJson(res, 400, { message: "Please provide your full name." }, req);
-  if (!isValidEmail(email))         return sendJson(res, 400, { message: "Please provide a valid email address." }, req);
-  if (!isStrongPassword(password))  return sendJson(res, 400, { message: "Password must be at least 8 characters with a letter and a number." }, req);
+  if (!name)                return sendJson(res, 400, { message: "Please provide your full name." }, req);
+  if (!isValidEmail(email)) return sendJson(res, 400, { message: "Please provide a valid email address." }, req);
+  const pwCheck = isStrongPassword(password);
+  if (!pwCheck.ok)          return sendJson(res, 400, { message: pwCheck.reason }, req);
 
   const user = buildPasswordUser(name, email, password);
   try {
@@ -169,7 +170,8 @@ export async function handleOtpVerify(req: IncomingMessage, res: ServerResponse)
   await otpCollection.deleteMany({ email, purpose });
 
   if (purpose === "reset") {
-    if (!isStrongPassword(newPassword)) return sendJson(res, 400, { message: "New password must be at least 8 characters with a letter and a number." }, req);
+    const pwCheck = isStrongPassword(newPassword);
+    if (!pwCheck.ok) return sendJson(res, 400, { message: pwCheck.reason }, req);
     await usersCollection.updateOne({ id: user.id }, {
       $set: {
         passwordHash: hashSecret(newPassword),

@@ -29,29 +29,55 @@ export default function SupportPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+
+    const name    = form.name.trim();
+    const email   = form.email.trim();
+    const subject = form.subject.trim() || "General support request";
+    const message = form.message.trim();
+
+    if (!name || !email || !message) {
+      setStatus("Please fill in your name, email, and message."); setSuccess(false); return;
+    }
+
     setSubmitting(true); setStatus("");
+
+    // ── Try API first ──────────────────────────────────────────
+    let apiOk = false;
     try {
       const res = await fetch("/api/support", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim(),
-          subject: form.subject.trim() || "General support request",
-          message: form.message.trim(),
-        }),
+        body: JSON.stringify({ name, email, subject, message }),
       });
-      const data = (await res.json()) as { message?: string };
-      if (!res.ok) throw new Error(data.message ?? "Unable to submit support request.");
-      setStatus(data.message ?? "Support request submitted successfully.");
-      setSuccess(true);
-      setForm({ name: user?.name ?? "", email: user?.email ?? "", subject: "", message: "" });
-    } catch (err) {
-      setStatus(resolveError(err, "Support server is not available right now."));
-      setSuccess(false);
-    } finally {
-      setSubmitting(false);
+      if (res.ok) {
+        const data = (await res.json()) as { message?: string };
+        setStatus(data.message ?? "Support request submitted successfully. We'll reply within 24 hours.");
+        setSuccess(true);
+        setForm({ name: user?.name ?? "", email: user?.email ?? "", subject: "", message: "" });
+        apiOk = true;
+      }
+    } catch {
+      /* fall through to mailto */
     }
+
+    // ── Fallback: open mailto when backend is offline ──────────
+    if (!apiOk) {
+      const mailto = [
+        `mailto:${CONTACT_EMAIL}`,
+        `?subject=${encodeURIComponent(`[PDF Solution Support] ${subject}`)}`,
+        `&body=${encodeURIComponent(
+          `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`
+        )}`,
+      ].join("");
+      window.location.href = mailto;
+      setStatus(
+        "Your default mail app has opened with the message pre-filled. " +
+        "Send it to reach us directly."
+      );
+      setSuccess(true);
+    }
+
+    setSubmitting(false);
   }
 
   return (
