@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FaCheckCircle, FaShieldAlt, FaStar } from "react-icons/fa";
+import { FaBolt, FaCheckCircle, FaShieldAlt, FaStar } from "react-icons/fa";
 import { useAuth } from "../lib/AuthContext";
 import { authHeaders, fetchJson, loadRazorpayScript, resolveError } from "../lib/api";
 import type { RazorpayCheckoutPayload, RazorpayResponse, SessionUser } from "../lib/types";
@@ -12,12 +12,82 @@ const FAQ = [
   { q: "Do I need an account to use PDF tools?", a: "No. All core tools are available without an account. An account unlocks the dashboard, history, and premium features." },
 ];
 
+const DAY_PASS_FEATURES = [
+  "All 12 PDF tools, unlimited",
+  "No daily processing cap",
+  "Valid for exactly 24 hours",
+  "No subscription, pay once",
+  "Same tools as Pro — for a day",
+];
+
 export default function PricingPage() {
   const { user, plans, openAuth, setUser } = useAuth();
   const [planStatus, setPlanStatus] = useState("");
   const [planSuccess, setPlanSuccess] = useState(false);
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
+  const [dayPassLoading, setDayPassLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // Check if user already has an active day pass
+  const hasDayPass = Boolean(
+    user?.dayPassExpiresAt && new Date(user.dayPassExpiresAt) > new Date()
+  );
+  const dayPassExpiry = user?.dayPassExpiresAt
+    ? new Date(user.dayPassExpiresAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+    : null;
+
+  async function handleDayPassCheckout() {
+    if (!user) { openAuth("login"); return; }
+    setDayPassLoading(true); setPlanStatus(""); setPlanSuccess(false);
+    try {
+      const ready = await loadRazorpayScript();
+      if (!ready || !window.Razorpay) throw new Error("Unable to load Razorpay checkout. Please try again.");
+
+      const result = await fetchJson<RazorpayCheckoutPayload>("/api/billing/day-pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+      });
+
+      const rp = new window.Razorpay({
+        key: result.keyId,
+        amount: result.amount,
+        currency: result.currency,
+        name: result.name,
+        description: result.description,
+        order_id: result.orderId,
+        prefill: result.prefill,
+        notes: result.notes,
+        theme: { color: "#f59e0b" },
+        handler: async (response: RazorpayResponse) => {
+          try {
+            const verified = await fetchJson<{ success: boolean; user?: SessionUser; message: string }>(
+              "/api/billing/day-pass/verify",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...authHeaders() },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              }
+            );
+            if (verified.user) setUser(verified.user);
+            setPlanSuccess(true);
+            setPlanStatus(`⚡ ${verified.message ?? "Day Pass activated! Enjoy 24 hours of unlimited access."}`);
+          } catch {
+            setPlanStatus("Payment received but verification failed. Contact support with Payment ID: " + response.razorpay_payment_id);
+          }
+        },
+        modal: { ondismiss: () => setPlanStatus("Checkout cancelled. You can try again anytime.") },
+      });
+      rp.open();
+    } catch (err) {
+      setPlanStatus(resolveError(err, "Billing service is not available right now."));
+    } finally {
+      setDayPassLoading(false);
+    }
+  }
 
   async function handleCheckout(planId: "pro" | "team") {
     if (!user) { openAuth("login"); return; }
@@ -89,8 +159,72 @@ export default function PricingPage() {
       {/* Plans */}
       <section className="pricing-plans-section">
         <div className="container">
-          <div className="plans-grid">
-            {plans.map((plan) => (
+          <div className="plans-grid plans-grid-4">
+            {/* Free plan */}
+            {plans.filter((p) => p.id === "free").map((plan) => (
+              <article key={plan.id} className="plan-card">
+                <div className="plan-header">
+                  <h2 className="plan-title">{plan.title}</h2>
+                  <div className="plan-price">
+                    <span className="plan-price-amount">{plan.priceLabel}</span>
+                    <span className="plan-price-interval">/{plan.interval}</span>
+                  </div>
+                  <p className="plan-desc">{plan.description}</p>
+                </div>
+                <ul className="plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}><FaCheckCircle className="plan-check" />{f}</li>
+                  ))}
+                </ul>
+                <div className="plan-action">
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-full"
+                    onClick={() => !user && openAuth("signup")}
+                  >
+                    {user ? "Current Plan" : "Get Started Free"}
+                  </button>
+                </div>
+              </article>
+            ))}
+
+            {/* ── Day Pass card ── */}
+            <article className="plan-card plan-card-daypass">
+              <div className="plan-popular-badge plan-daypass-badge"><FaBolt /> One-Time</div>
+              <div className="plan-header">
+                <h2 className="plan-title">Day Pass</h2>
+                <div className="plan-price">
+                  <span className="plan-price-amount">₹29</span>
+                  <span className="plan-price-interval">/ 24 hours</span>
+                </div>
+                <p className="plan-desc">Need PDFs processed today? Pay once, use all tools for the next 24 hours.</p>
+              </div>
+              <ul className="plan-features">
+                {DAY_PASS_FEATURES.map((f) => (
+                  <li key={f}><FaCheckCircle className="plan-check" />{f}</li>
+                ))}
+              </ul>
+              <div className="plan-action">
+                {hasDayPass ? (
+                  <div className="daypass-active-msg">
+                    <FaBolt className="daypass-active-icon" />
+                    <span>Day Pass active until<br /><strong>{dayPassExpiry}</strong></span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-daypass btn-full"
+                    onClick={() => void handleDayPassCheckout()}
+                    disabled={dayPassLoading}
+                  >
+                    {dayPassLoading ? "Opening checkout…" : "Buy Day Pass — ₹29"}
+                  </button>
+                )}
+              </div>
+            </article>
+
+            {/* Pro + Team plans */}
+            {plans.filter((p) => p.id !== "free").map((plan) => (
               <article key={plan.id} className={`plan-card ${plan.id === "pro" ? "plan-featured" : ""}`}>
                 {plan.id === "pro" && <div className="plan-popular-badge"><FaStar /> Most Popular</div>}
                 <div className="plan-header">
@@ -107,24 +241,14 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 <div className="plan-action">
-                  {plan.id === "free" ? (
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-full"
-                      onClick={() => !user && openAuth("signup")}
-                    >
-                      {user ? "Current Plan" : "Get Started Free"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-full"
-                      onClick={() => void handleCheckout(plan.id as "pro" | "team")}
-                      disabled={loadingPlanId === plan.id}
-                    >
-                      {loadingPlanId === plan.id ? "Opening checkout…" : plan.cta}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-full"
+                    onClick={() => void handleCheckout(plan.id as "pro" | "team")}
+                    disabled={loadingPlanId === plan.id}
+                  >
+                    {loadingPlanId === plan.id ? "Opening checkout…" : plan.cta}
+                  </button>
                 </div>
               </article>
             ))}

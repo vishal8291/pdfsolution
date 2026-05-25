@@ -49,7 +49,10 @@ export type UsageState = {
 
 export function useUsageLimit(): UsageState {
   const { user } = useAuth();
-  const isPro = user?.plan === "pro" || user?.plan === "team";
+  const hasDayPass = Boolean(
+    user?.dayPassExpiresAt && new Date(user.dayPassExpiresAt) > new Date()
+  );
+  const isPro = user?.plan === "pro" || user?.plan === "team" || hasDayPass;
 
   const [used, setUsed]       = useState(0);
   const [loading, setLoading] = useState(true);

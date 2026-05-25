@@ -9,7 +9,7 @@ import { handleAppConfig, handleHealth, handlePlans } from "./routes/app.js";
 import { handleSignup, handleLogin, handleGoogleAuth, handleOtpRequest, handleOtpVerify, handleMe, handleLogout } from "./routes/auth.js";
 import { handleGetProfile, handleUpdateProfile, handleDashboard } from "./routes/profile.js";
 import { handleContact, handleSupport } from "./routes/contact.js";
-import { handleCreateCheckout, handleVerifyPayment } from "./routes/billing.js";
+import { handleCreateCheckout, handleVerifyPayment, handleCreateDayPass, handleVerifyDayPass } from "./routes/billing.js";
 import { handleUsageStatus, handleUsageTrack } from "./routes/usage.js";
 
 const port = Number(process.env.PORT ?? 3001);
@@ -72,6 +72,8 @@ const server = createServer(async (req, res) => {
     // ── Billing ───────────────────────────────────────────────
     if (method === "POST" && url === "/api/billing/create-checkout-session") return await handleCreateCheckout(req, res);
     if (method === "POST" && url === "/api/billing/verify-payment")          return await handleVerifyPayment(req, res);
+    if (method === "POST" && url === "/api/billing/day-pass")                return await handleCreateDayPass(req, res);
+    if (method === "POST" && url === "/api/billing/day-pass/verify")         return await handleVerifyDayPass(req, res);
 
     // ── Usage tracking ────────────────────────────────────────
     if (method === "GET"  && url === "/api/usage/status") return await handleUsageStatus(req, res);

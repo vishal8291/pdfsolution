@@ -1558,6 +1558,11 @@ textarea { min-height: 140px; resize: vertical; }
   max-width: 960px;
   margin: 0 auto;
 }
+/* 4-column layout for Free + Day Pass + Pro + Team */
+.plans-grid-4 {
+  max-width: 1200px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
 .plan-card {
   background: var(--white);
   border: 1.5px solid var(--border);
@@ -1625,6 +1630,62 @@ textarea { min-height: 140px; resize: vertical; }
 .plan-features li { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.88rem; color: var(--text-secondary); }
 .plan-check { color: #22c55e; flex-shrink: 0; margin-top: 2px; }
 .plan-action { margin-top: auto; }
+
+/* ── Day Pass card ─────────────────────────────────────────── */
+.plan-card-daypass {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--white), var(--white)) padding-box,
+    linear-gradient(135deg, #f59e0b, #ef4444) border-box;
+  box-shadow: 0 8px 32px rgba(245,158,11,0.12);
+}
+.plan-card-daypass:hover {
+  box-shadow: 0 16px 48px rgba(245,158,11,0.22);
+}
+.plan-daypass-badge {
+  background: linear-gradient(135deg, #f59e0b, #ef4444) !important;
+  box-shadow: 0 2px 12px rgba(245,158,11,0.35) !important;
+}
+.plan-card-daypass .plan-price-amount {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.btn-daypass {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  border-radius: var(--r-md);
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+.btn-daypass:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.btn-daypass:disabled { opacity: 0.55; cursor: not-allowed; }
+.daypass-active-msg {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.08));
+  border: 1.5px solid rgba(245,158,11,0.3);
+  border-radius: var(--r-md);
+  padding: 0.9rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.daypass-active-icon {
+  color: #f59e0b;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.daypass-active-msg strong { color: var(--text-primary); display: block; margin-top: 0.15rem; }
 
 .pricing-status-msg { text-align: center; margin: 1.5rem auto 0; max-width: 480px; padding: 1rem; border-radius: var(--r-md); font-size: 0.9rem; }
 .pricing-status-msg.success { background: #f0fdf4; color: #166534; }
@@ -2411,6 +2472,15 @@ html.dark .plan-featured {
   background: linear-gradient(#1f2937, #1f2937) padding-box,
               var(--grad-brand) border-box;
   box-shadow: 0 8px 40px rgba(239,68,68,0.18);
+}
+html.dark .plan-card-daypass {
+  background: linear-gradient(#1f2937, #1f2937) padding-box,
+              linear-gradient(135deg, #f59e0b, #ef4444) border-box;
+  box-shadow: 0 8px 32px rgba(245,158,11,0.15);
+}
+html.dark .daypass-active-msg {
+  background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(239,68,68,0.1));
+  border-color: rgba(245,158,11,0.25);
 }
 html.dark .ad-banner-wrap .adsbygoogle {
   background: #27374d;

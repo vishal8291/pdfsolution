@@ -15,6 +15,7 @@ export type SessionUser = {
   avatarUrl?: string;
   plan: "free" | "pro" | "team";
   preferences: PreferenceSettings;
+  dayPassExpiresAt?: string;  // ISO string — Day Pass active when > new Date()
 };
 
 export type AppConfig = {

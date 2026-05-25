@@ -13,7 +13,8 @@ export function createDefaultPreferences(): UserPreferences {
 export function toSessionUser(user: StoredUser): SessionUser {
   return { id: user.id, name: user.name ?? "", email: user.email ?? "",
     phone: user.phone, company: user.company, avatarUrl: user.avatarUrl,
-    plan: user.plan ?? "free", preferences: user.preferences ?? createDefaultPreferences() };
+    plan: user.plan ?? "free", preferences: user.preferences ?? createDefaultPreferences(),
+    dayPassExpiresAt: user.dayPassExpiresAt?.toISOString() };
 }
 export function createSession(user: StoredUser) {
   const token = randomBytes(24).toString("hex");

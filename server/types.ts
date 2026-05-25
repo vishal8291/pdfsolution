@@ -5,7 +5,9 @@ export type StoredUser = {
   _id?: string; id: string; name: string; email: string; passwordHash?: string;
   phone?: string; company?: string; avatarUrl?: string; plan: 'free' | 'pro' | 'team';
   authProviders: { password: boolean; google: boolean; };
-  preferences: UserPreferences; createdAt: Date; updatedAt: Date;
+  preferences: UserPreferences;
+  dayPassExpiresAt?: Date;   // set when user buys the ₹29 / 24-hour Day Pass
+  createdAt: Date; updatedAt: Date;
 };
 export type ContactMessage = { _id?: string; id: string; name: string; email: string; message: string; createdAt: Date; };
 export type SupportTicket = {
@@ -17,13 +19,16 @@ export type OtpRecord = {
   purpose: 'login' | 'reset'; expiresAt: Date; createdAt: Date;
 };
 export type SubscriptionRecord = {
-  _id?: string; id: string; userId: string; email: string; plan: 'pro' | 'team';
+  _id?: string; id: string; userId: string; email: string; plan: 'pro' | 'team' | 'daypass';
   status: 'pending' | 'active' | 'cancelled'; provider: 'razorpay';
-  razorpayOrderId?: string; razorpayPaymentId?: string; createdAt: Date; updatedAt: Date;
+  razorpayOrderId?: string; razorpayPaymentId?: string;
+  expiresAt?: Date;          // only for Day Pass records
+  createdAt: Date; updatedAt: Date;
 };
 export type SessionUser = {
   id: string; name: string; email: string; phone?: string; company?: string;
   avatarUrl?: string; plan: 'free' | 'pro' | 'team'; preferences: UserPreferences;
+  dayPassExpiresAt?: string;  // ISO string — active when > new Date()
 };
 export type PublicPlan = {
   id: 'free' | 'pro' | 'team'; title: string; priceLabel: string; interval: string;
