@@ -2165,6 +2165,61 @@ textarea { min-height: 140px; resize: vertical; }
 }
 
 /* ============================================================
+   REVIEW INVITE SECTION
+   ============================================================ */
+.review-invite-section {
+  padding: 3.5rem 0;
+  background: var(--white);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.review-invite-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.75rem;
+  background: var(--slate-50);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 2.5rem;
+}
+.review-invite-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-md);
+  background: var(--grad-brand);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-brand-sm);
+}
+.review-invite-body h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.6rem;
+}
+.review-invite-body p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0 0 1.25rem;
+  max-width: 580px;
+}
+.review-invite-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .review-invite-card { flex-direction: column; padding: 1.75rem; }
+}
+html.dark .review-invite-section { background: var(--bg-card); }
+html.dark .review-invite-card { background: #27374d; border-color: #374151; }
+html.dark .review-invite-body p { color: var(--text-secondary); }
+
+/* ============================================================
    AD BANNER — Google AdSense wrapper
    ============================================================ */
 .ad-banner-wrap {
