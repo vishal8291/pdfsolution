@@ -1,5 +1,5 @@
-import { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider } from "./lib/AuthContext";
 import Navbar from "./layout/Navbar";
 import Footer from "./layout/Footer";
@@ -16,6 +16,12 @@ const AboutPage = lazy(() => import("./pages/AboutPage"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
+
 function PageLoader() {
   return (
     <div className="page-loader" aria-label="Loading">
@@ -28,6 +34,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ScrollToTop />
         <div className="site-shell">
           <Navbar />
           <ErrorBoundary>
