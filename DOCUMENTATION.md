@@ -616,7 +616,7 @@ npm run preview       # Preview production build locally
 | `.env` | All secrets (never commit) |
 
 ### Support contact
-- **Email:** vishaltiwari101999@gmail.com
+- **Email:** vishal.buildss@gmail.com
 - **GitHub:** configured in `src/lib/api.ts`
 
 ---

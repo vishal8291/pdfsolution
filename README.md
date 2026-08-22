@@ -149,4 +149,4 @@ Payments processed via **Razorpay** with server-side HMAC signature verification
 **Vishal Tiwari** — Full Stack Developer
 - GitHub: [github.com/vishal8291](https://github.com/vishal8291)
 - LinkedIn: [linkedin.com/in/vishal-tiwari-158a5216b](https://linkedin.com/in/vishal-tiwari-158a5216b)
-- Email: vishaltiwari101999@gmail.com
+- Email: vishal.buildss@gmail.com

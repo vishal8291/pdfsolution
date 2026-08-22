@@ -83,7 +83,7 @@ export async function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
-export const CONTACT_EMAIL = "vishaltiwari101999@gmail.com";
+export const CONTACT_EMAIL = "vishal.buildss@gmail.com";
 export const CONTACT_PHONE = "8291569470";
 export const CONTACT_ADDRESS = "A-305 Green View, Prernanagar, Babhai, Borivali West, Mumbai 400092";
 export const GITHUB_LINK = "https://github.com/vishal8291/vishal8291";

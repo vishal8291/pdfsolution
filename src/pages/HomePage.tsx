@@ -247,7 +247,7 @@ export default function HomePage() {
                   Send Feedback <FaArrowRight />
                 </Link>
                 <a
-                  href="mailto:vishaltiwari101999@gmail.com?subject=PDF Solution feedback"
+                  href="mailto:vishal.buildss@gmail.com?subject=PDF Solution feedback"
                   className="btn btn-outline"
                 >
                   Email the builder
